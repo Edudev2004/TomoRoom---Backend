@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cypher CoPlay - Anime & Social Room</title>
+  <meta name="description" content="Mira anime sincronizado en tiempo real con amigos, chatea y comparte actividades como en Discord.">
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Socket.io & HLS.js CDNs -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.12/dist/hls.min.js"></script>
+</head>
+<body class="dark-mode">
+
+  <!-- PANTALLA DE INGRESO (ONBOARDING) -->
+  <div id="onboarding-overlay" class="onboarding-overlay">
+    <div class="onboarding-card">
+      <div class="onboarding-logo">
+        <i class="fa-solid fa-cloud-moon-rain logo-glow"></i>
+        <h2>Cypher<span>CoPlay</span></h2>
+        <p>Tu espacio privado de anime, chat y juegos en tiempo real</p>
+      </div>
+
+      <div class="onboarding-form">
+        <div class="form-group">
+          <label for="onboarding-username"><i class="fa-solid fa-user"></i> Tu Apodo</label>
+          <input type="text" id="onboarding-username" placeholder="Ej. NeonOtaku" maxlength="15" required>
+        </div>
+
+        <div class="avatar-selector-wrapper">
+          <label><i class="fa-solid fa-face-smile-wink"></i> Tu Avatar</label>
+          <div class="avatar-display-row">
+            <img id="avatar-preview" src="https://api.dicebear.com/7.x/pixel-art/svg?seed=initial" alt="Avatar Preview">
+            <button id="btn-random-avatar" class="action-btn-sm" type="button"><i class="fa-solid fa-shuffle"></i> Aleatorio</button>
+          </div>
+        </div>
+
+        <hr class="form-divider">
+
+        <div class="onboarding-actions">
+          <button id="btn-create-room" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Crear Sala Nueva</button>
+          
+          <div class="join-room-section">
+            <input type="text" id="onboarding-room-id" placeholder="Código de la sala..." maxlength="10">
+            <button id="btn-join-room" class="btn btn-secondary"><i class="fa-solid fa-right-to-bracket"></i> Unirse</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APLICACIÓN PRINCIPAL (DASHBOARD) -->
+  <div class="app-layout" style="display: none;">
+    
+    <!-- COLUMNA 1: BARRA LATERAL ULTRA COMPACTA (SERVIDORES / VISTAS) -->
+    <aside class="sidebar-icons">
+      <div class="icon-brand">
+        <i class="fa-solid fa-cloud-moon-rain"></i>
+      </div>
+      <div class="icon-nav-group">
+        <button class="icon-btn active" id="btn-tab-catalog" title="Explorar Catálogo">
+          <i class="fa-solid fa-compass"></i>
+          <span class="tooltip">Catálogo</span>
+        </button>
+        <button class="icon-btn" id="btn-tab-cinema" title="Sala de Cine Sync">
+          <i class="fa-solid fa-film"></i>
+          <span class="tooltip">Cine</span>
+        </button>
+        <button class="icon-btn" id="btn-tab-activities" title="Actividades y Minijuegos">
+          <i class="fa-solid fa-gamepad"></i>
+          <span class="tooltip">Actividades</span>
+        </button>
+      </div>
+      <div class="icon-footer">
+        <button class="icon-btn" id="btn-leave" title="Salir de la Sala">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- COLUMNA 2: SIDEBAR ESTILO DISCORD (CANALES & USUARIOS) -->
+    <section class="discord-sidebar">
+      <div class="sidebar-header">
+        <div class="room-title-info">
+          <h3>Sala de CoPlay</h3>
+          <p id="room-code-display">ID: ------</p>
+        </div>
+        <button id="btn-copy-code" class="btn-icon-only" title="Copiar Código de Sala">
+          <i class="fa-solid fa-copy"></i>
+        </button>
+      </div>
+
+      <div class="sidebar-channels-list">
+        <!-- CANALES DE TEXTO -->
+        <div class="channel-group">
+          <div class="group-title"><i class="fa-solid fa-chevron-down"></i> Canales de Texto</div>
+          <button class="channel-item active" data-channel="general">
+            <span class="hash">#</span> general-chat
+          </button>
+          <button class="channel-item" data-channel="recomendados">
+            <span class="hash">#</span> recomendados
+          </button>
+        </div>
+
+        <!-- CANAL DE VOZ SIMULADO -->
+        <div class="channel-group">
+          <div class="group-title"><i class="fa-solid fa-chevron-down"></i> Canales de Voz</div>
+          <div class="voice-channel-box" id="btn-join-voice">
+            <div class="voice-channel-header">
+              <span><i class="fa-solid fa-volume-high"></i> Salón de Cine (Voz)</span>
+              <span id="voice-connected-status" class="status-badge">Conectar</span>
+            </div>
+            <!-- Lista de usuarios en llamada -->
+            <div class="voice-users-list" id="voice-users-list">
+              <!-- Inyectados por JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PERFIL DE USUARIO AL PIE -->
+      <div class="user-profile-footer">
+        <div class="user-profile-info">
+          <img id="user-footer-avatar" src="https://api.dicebear.com/7.x/pixel-art/svg?seed=def" alt="Avatar">
+          <div class="user-profile-text">
+            <span id="user-footer-name">Cargando...</span>
+            <span class="user-status-tag">En Línea</span>
+          </div>
+        </div>
+        <div class="user-profile-controls">
+          <button id="btn-toggle-mic" class="control-btn" title="Silenciar Micrófono">
+            <i class="fa-solid fa-microphone"></i>
+          </button>
+          <button id="btn-toggle-deafen" class="control-btn" title="Ensordecer Audio">
+            <i class="fa-solid fa-volume-high"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- COLUMNA 3: CONTENIDO PRINCIPAL (TABS) -->
+    <main class="main-content">
+      
+      <!-- TAB 1: CATÁLOGO DE ANIME -->
+      <div id="panel-catalog" class="tab-panel active">
+        <!-- BARRA SUPERIOR DE BÚSQUEDA -->
+        <header class="top-bar">
+          <div class="search-box">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="search-input" placeholder="Buscar anime en todos los proveedores..." autocomplete="off">
+            <button id="search-btn"><i class="fa-solid fa-arrow-right"></i></button>
+          </div>
+        </header>
+
+        <div class="content-body">
+          <div class="section-title-bar">
+            <div>
+              <h2 id="view-title">Catálogo Completo</h2>
+              <p id="view-subtitle">Explora anime multi-proveedor</p>
+            </div>
+          </div>
+
+          <!-- Filtros de Género -->
+          <div class="genre-filters" id="genre-filters">
+            <button class="genre-chip active" data-genre="">Todos</button>
+            <button class="genre-chip" data-genre="accion">Acción</button>
+            <button class="genre-chip" data-genre="aventura">Aventura</button>
+            <button class="genre-chip" data-genre="comedia">Comedia</button>
+            <button class="genre-chip" data-genre="drama">Drama</button>
+            <button class="genre-chip" data-genre="fantasia">Fantasía</button>
+            <button class="genre-chip" data-genre="romance">Romance</button>
+            <button class="genre-chip" data-genre="sci-fi">Sci-Fi</button>
+            <button class="genre-chip" data-genre="sobrenatural">Sobrenatural</button>
+            <button class="genre-chip" data-genre="shounen">Shounen</button>
+            <button class="genre-chip" data-genre="seinen">Seinen</button>
+          </div>
+
+          <!-- Cuadrícula de Resultados -->
+          <div id="results-grid" class="cards-grid">
+            <!-- Skeletons y Tarjetas de Anime -->
+          </div>
+
+          <!-- Sentinel de Scroll Infinito -->
+          <div id="scroll-sentinel" class="scroll-sentinel">
+            <div class="scroll-spinner"></div>
+            <p>Cargando más títulos...</p>
+          </div>
+        </div>
+
+        <!-- DETALLE DEL ANIME (VISTA SUPERPUESTA) -->
+        <div id="detail-overlay" class="detail-overlay" style="display: none;">
+          <div class="detail-modal">
+            <button class="close-overlay-btn" id="btn-close-detail"><i class="fa-solid fa-xmark"></i></button>
+            
+            <div class="anime-hero-banner" id="anime-hero-banner">
+              <div class="hero-overlay"></div>
+              <div class="hero-content">
+                <div class="hero-poster" id="anime-poster"></div>
+                <div class="hero-info">
+                  <span class="anime-badge" id="anime-type">Serie</span>
+                  <h2 id="anime-title">Nombre del Anime</h2>
+                  <div class="anime-genres" id="anime-genres"></div>
+                  <p class="anime-synopsis" id="anime-description">Sinopsis del anime...</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="episodes-container">
+              <h3><i class="fa-solid fa-list-ol"></i> Lista de Episodios</h3>
+              <div class="episodes-grid" id="episodes-grid">
+                <!-- Episodios inyectados por JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: SALA DE CINE SINCRONIZADA -->
+      <div id="panel-cinema" class="tab-panel">
+        <div class="cinema-header">
+          <div class="playing-info-bar">
+            <span class="status-indicator live-pulse">En Vivo</span>
+            <div>
+              <h2 id="playing-title">Sala de Cine Vacía</h2>
+              <p id="playing-subtitle">Busca un anime en el catálogo y compártelo al grupo para empezar.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="cinema-body">
+          <div class="player-wrapper">
+            <div class="video-container" id="video-container">
+              <video id="main-player" controls crossorigin="anonymous"></video>
+              <div class="video-loader" id="video-loader">
+                <div class="spinner"></div>
+                <p>Cargando flujo de video...</p>
+              </div>
+              <!-- Mensaje de Sync -->
+              <div id="sync-notice-overlay" class="sync-notice-overlay" style="display: none;">
+                <span id="sync-notice-text">Sincronizando reproducción...</span>
+              </div>
+            </div>
+
+            <!-- Controles extras de la Sala de Cine -->
+            <div class="player-controls-row">
+              <button id="player-prev-btn" class="player-control-btn"><i class="fa-solid fa-chevron-left"></i> Anterior</button>
+              <button id="player-sync-force" class="player-control-btn btn-accent"><i class="fa-solid fa-rotate"></i> Forzar Sincronía</button>
+              <a id="player-external-btn" target="_blank" class="player-control-btn" style="display:none; text-decoration:none;"><i class="fa-solid fa-up-right-from-square"></i> Abrir Externo</a>
+              <button id="player-next-btn" class="player-control-btn">Siguiente <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            
+            <div class="server-selection-panel">
+              <h4><i class="fa-solid fa-satellite-dish"></i> Servidores Disponibles en la Sala</h4>
+              <div class="servers-list" id="servers-list"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: ACTIVIDADES Y MINIJUEGOS -->
+      <div id="panel-activities" class="tab-panel">
+        <div class="activities-header">
+          <h2>Actividades en Pareja / Grupo</h2>
+          <p>Realiza actividades divertidas juntos en tiempo real</p>
+        </div>
+
+        <div class="activities-grid">
+          <!-- ACTIVIDAD A: PIZARRA COMPARTIDA -->
+          <div class="activity-card canvas-card">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-palette"></i> Pizarra Compartida</h3>
+              <button id="btn-clear-canvas" class="action-btn-sm btn-danger"><i class="fa-solid fa-trash-can"></i> Limpiar</button>
+            </div>
+            <div class="canvas-container">
+              <canvas id="paint-canvas" width="600" height="400"></canvas>
+            </div>
+            <div class="canvas-controls">
+              <div class="color-picker-row">
+                <button class="color-dot active" data-color="#8a2be2" style="background-color: #8a2be2;"></button>
+                <button class="color-dot" data-color="#ff007f" style="background-color: #ff007f;"></button>
+                <button class="color-dot" data-color="#00f0ff" style="background-color: #00f0ff;"></button>
+                <button class="color-dot" data-color="#39ff14" style="background-color: #39ff14;"></button>
+                <button class="color-dot" data-color="#ffb703" style="background-color: #ffb703;"></button>
+                <button class="color-dot" data-color="#ffffff" style="background-color: #ffffff;"></button>
+                <button class="color-dot" data-color="eraser" style="background-color: #1a1a24; border: 1px dashed var(--border-color);"><i class="fa-solid fa-eraser"></i></button>
+              </div>
+              <div class="brush-size-row">
+                <span>Pincel:</span>
+                <input type="range" id="brush-size" min="2" max="20" value="5">
+              </div>
+            </div>
+          </div>
+
+          <!-- ACTIVIDAD B: TRES EN RAYA (TIC-TAC-TOE) -->
+          <div class="activity-card ttt-card">
+            <div class="card-header">
+              <h3><i class="fa-solid fa-xmark"></i> Tres en Raya (Real-Time)</h3>
+              <button id="btn-reset-ttt" class="action-btn-sm"><i class="fa-solid fa-rotate-right"></i> Reiniciar</button>
+            </div>
+            <div class="ttt-body">
+              <div class="ttt-status-bar" id="ttt-status">Esperando jugadores...</div>
+              
+              <div class="ttt-board" id="ttt-board">
+                <div class="ttt-cell" data-idx="0"></div>
+                <div class="ttt-cell" data-idx="1"></div>
+                <div class="ttt-cell" data-idx="2"></div>
+                <div class="ttt-cell" data-idx="3"></div>
+                <div class="ttt-cell" data-idx="4"></div>
+                <div class="ttt-cell" data-idx="5"></div>
+                <div class="ttt-cell" data-idx="6"></div>
+                <div class="ttt-cell" data-idx="7"></div>
+                <div class="ttt-cell" data-idx="8"></div>
+              </div>
+
+              <div class="ttt-join-controls">
+                <button id="btn-join-ttt" class="btn btn-secondary btn-sm">Sentarse a Jugar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- COLUMNA 4: SIDEBAR DERECHO (CHAT & LISTA DE USUARIOS) -->
+    <aside class="right-chat-panel">
+      <!-- Toggles de pestaña de la derecha -->
+      <div class="panel-tabs">
+        <button class="tab-header-btn active" id="tab-btn-chat">
+          <i class="fa-solid fa-comments"></i> Chat
+        </button>
+        <button class="tab-header-btn" id="tab-btn-members">
+          <i class="fa-solid fa-users"></i> Grupo (<span id="member-count">0</span>)
+        </button>
+      </div>
+
+      <!-- SECCIÓN DEL CHAT -->
+      <div id="tab-content-chat" class="tab-content active">
+        <div class="chat-messages-container" id="chat-messages">
+          <!-- Mensajes de texto inyectados dinámicamente -->
+        </div>
+
+        <div class="typing-indicator-bar" id="typing-indicator">
+          <!-- "Juan está escribiendo..." -->
+        </div>
+
+        <div class="chat-input-area">
+          <textarea id="chat-textarea" placeholder="Escribe un mensaje en #general-chat..." maxlength="200" rows="1"></textarea>
+          <button id="chat-send-btn" class="chat-send-btn">
+            <i class="fa-solid fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- SECCIÓN DE MIEMBROS -->
+      <div id="tab-content-members" class="tab-content">
+        <div class="members-list-container" id="members-list">
+          <!-- Miembros en línea inyectados dinámicamente -->
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
