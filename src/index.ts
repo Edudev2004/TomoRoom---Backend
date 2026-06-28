@@ -6,7 +6,15 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const fastify = Fastify({
-  logger: true
+  logger: false // Lo apagamos para que no ensucie la consola con JSONs
+});
+
+import cors from '@fastify/cors';
+
+// Registrar CORS para permitir peticiones desde el frontend (Vite en puerto 5173)
+fastify.register(cors, {
+  origin: '*', // En producción cambiaremos esto por el dominio real
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 });
 
 import { RoomSocket } from './infrastructure/adapters/in/websockets/RoomSocket';
@@ -35,11 +43,24 @@ const start = async () => {
   try {
     const port = process.env.PORT ? parseInt(process.env.PORT) : 3000;
     await fastify.listen({ port, host: '0.0.0.0' });
-    fastify.log.info(`Servidor escuchando en http://localhost:${port}`);
+    
+    console.log(`\n========================================`);
+    console.log(`Backend - TomoRoom Iniciado correctamente!`);
+    console.log(`Escuchando en http://localhost:${port}`);
+    console.log(`========================================\n`);
   } catch (err) {
-    fastify.log.error(err);
+    console.error(err);
     process.exit(1);
   }
 };
+
+// Cierre elegante para evitar que el puerto 3000 se quede pegado con Nodemon
+['SIGINT', 'SIGTERM'].forEach((signal) => {
+  process.on(signal, async () => {
+    console.log(`\nApagando servidor (${signal})...`);
+    await fastify.close();
+    process.exit(0);
+  });
+});
 
 start();

@@ -39,7 +39,8 @@ async function fetchHtmlWithPuppeteer(url) {
   return content;
 }
 
-const DEFAULT_DOMAIN = "animeflv.net";
+const DEFAULT_DOMAIN = "www4.animeflv.net";
+//const DEFAULT_DOMAIN = "animeflv.net";
 
 const HTTP_HEADERS = {
   "User-Agent":
@@ -47,6 +48,25 @@ const HTTP_HEADERS = {
   Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
   "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
 };
+
+const dns = require('dns');
+const https = require('https');
+
+// Configuramos DNS de Google y Cloudflare
+dns.setServers(['8.8.8.8', '1.1.1.1']);
+
+const dnsBypassAgent = new https.Agent({
+  lookup: (hostname, options, callback) => {
+    dns.resolve4(hostname, (err, addresses) => {
+      if (err) {
+        // Fallback al lookup original si falla
+        return dns.lookup(hostname, options, callback);
+      }
+      const res = options.all ? addresses.map(ip => ({ address: ip, family: 4 })) : addresses[0];
+      callback(null, res, options.all ? undefined : 4);
+    });
+  }
+});
 
 async function fetchHtml(url) {
   try {
@@ -56,15 +76,22 @@ async function fetchHtml(url) {
       headers: HTTP_HEADERS,
       maxRedirects: 5,
       validateStatus: (status) => status >= 200 && status < 400,
-      timeout,
+      httpsAgent: dnsBypassAgent,
     });
+    
+    // Si la respuesta es el challenge de JS de AnimeFLV, forzamos Puppeteer
+    if (typeof response.data === 'string' && response.data.includes('<title>Loading...</title>') && response.data.includes('window.location.replace')) {
+      console.log("fetchHtml: JS Challenge detectado, cambiando a Puppeteer para", url);
+      return await fetchHtmlWithPuppeteer(url);
+    }
+    
     return response.data;
   } catch (error) {
     try {
       console.log("fetchHtml: trying with shared puppeteer for", url);
       return await fetchHtmlWithPuppeteer(url);
     } catch (puppeteerError) {
-      throw new ApiError(500, "No se pudo obtener contenido desde AnimeFLV", error.message);
+      throw new ApiError(500, "No se pudo obtener contenido desde AnimeFLV", error.message || puppeteerError.message);
     }
   }
 }

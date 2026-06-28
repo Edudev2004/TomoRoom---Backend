@@ -9,5 +9,5 @@ export interface AnimeSearchResult {
 
 export interface IAnimeProvider {
   search(query: string): Promise<AnimeSearchResult[]>;
-  // Próximamente agregaremos getEpisodes, etc.
+  getCatalog(page: number, genre?: string): Promise<AnimeSearchResult[]>;
 }

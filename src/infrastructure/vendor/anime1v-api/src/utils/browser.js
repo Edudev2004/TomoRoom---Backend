@@ -57,7 +57,8 @@ async function getBrowser() {
       "--disable-features=TranslateUI,BlinkGenPropertyTrees",
       "--disable-ipc-flooding-protection",
       "--disable-renderer-backgrounding",
-      "--metrics-recording-only"
+      "--metrics-recording-only",
+      "--dns-server=8.8.8.8"
     ]
   });
   return browserInstance;
