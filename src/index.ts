@@ -29,10 +29,10 @@ fastify.register(fastifyPlugin(async (fastify) => {
   });
 }));
 
-// Ruta HTTP básica de prueba
-fastify.get('/', async (request, reply) => {
-  return { status: 'TomoRoom Backend is running!', architecture: 'Hexagonal' };
-});
+import { setupRoutes } from './infrastructure/adapters/in/http/routes';
+
+// Registrar Rutas HTTP (Pilar 2)
+fastify.register(setupRoutes);
 
 const start = async () => {
   try {
