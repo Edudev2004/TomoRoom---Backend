@@ -14,6 +14,7 @@ import {
 export const planTypeEnum = pgEnum('plan_type', ['solo', 'duo', 'mancha']);
 export const subscriptionStatusEnum = pgEnum('subscription_status', ['active', 'expired', 'canceled']);
 export const roomRoleEnum = pgEnum('room_role', ['admin', 'member']);
+export const friendshipStatusEnum = pgEnum('friendship_status', ['pending', 'accepted', 'rejected']);
 
 // 1. Users
 export const users = pgTable('users', {
@@ -74,4 +75,13 @@ export const roomNotes = pgTable('room_notes', {
   roomId: uuid('room_id').references(() => rooms.id).notNull(),
   content: text('content'),
   lastUpdatedAt: timestamp('last_updated_at').defaultNow().notNull(),
+});
+
+// 7. Friendships
+export const friendships = pgTable('friendships', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  requesterId: uuid('requester_id').references(() => users.id).notNull(),
+  addresseeId: uuid('addressee_id').references(() => users.id).notNull(),
+  status: friendshipStatusEnum('status').default('pending').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 });

@@ -78,7 +78,8 @@ export class AnimeController {
       return reply.send(stream);
     } catch (error) {
       console.error("AnimeController Resolve Error:", error);
-      return reply.status(500).send({ success: false, message: 'Error al resolver' });
+      // Return 200 so the frontend can read {success: false} and fallback gracefully to Iframe
+      return reply.status(200).send({ success: false, message: 'Error al resolver' });
     }
   }
 }

@@ -59,36 +59,8 @@ export class AnimeFlvAdapter implements IAnimeProvider {
   }
 
   async resolveStream(urls: string[]): Promise<any> {
-    const { resolveEmbedUrl } = require('../../vendor/anime1v-api/src/utils/resolvers');
-    const resolvePromises = urls.map(async (url) => {
-      try {
-        const directUrl = await resolveEmbedUrl(url);
-        if (directUrl && directUrl !== url) {
-          let server = "unknown";
-          if (url.includes("voe")) server = "voe";
-          else if (url.includes("tape")) server = "streamtape";
-          else if (url.includes("wish") || url.includes("playnix") || url.includes("medix") || url.includes("awish")) server = "streamwish";
-          else if (url.includes("vidhide")) server = "vidhide";
-          else if (url.includes("dood")) server = "doodstream";
-
-          return {
-            success: true,
-            server,
-            mediaType: directUrl.includes(".m3u8") ? "hls" : "mp4",
-            streamUrl: directUrl,
-            resolvedFrom: url
-          };
-        }
-      } catch (err: any) {
-        console.warn(`[RESOLVE CASCADE] Fallo en ${url}: ${err.message}`);
-      }
-      throw new Error("No se pudo resolver");
-    });
-
-    try {
-      return await Promise.any(resolvePromises);
-    } catch (err) {
-      throw new Error("No se pudo obtener el enlace de streaming directo en ningún servidor");
-    }
+    // Para no retrasar la carga y al no tener un resolver nativo disponible,
+    // forzamos el fallo inmediato para que el frontend haga fallback al Iframe sin demoras.
+    throw new Error('No se pudo obtener el enlace de streaming directo. Forzando Iframe.');
   }
 }
